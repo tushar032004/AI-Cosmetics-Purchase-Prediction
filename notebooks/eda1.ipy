@@ -1,0 +1,158 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+import warnings
+
+# Warnings hide karne ke liye taaki output clean rahe
+warnings.filterwarnings('ignore')
+sns.set_theme(style="whitegrid", palette="muted")
+
+print("🚀 Step 1: Generating Synthetic Data...")
+# ==========================================
+# PART 1: DATA GENERATION
+# ==========================================
+np.random.seed(42)
+n_rows = 500
+
+age = np.clip(np.random.normal(35, 12, n_rows), 18, 70).astype(float)
+gender = np.random.choice(['Male', 'Female', 'Non-binary'], p=[0.45, 0.50, 0.05], size=n_rows)
+skin_type = np.random.choice(['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'], size=n_rows)
+income = np.clip(np.random.normal(60000, 20000, n_rows), 20000, 150000)
+spend = income * np.random.uniform(0.01, 0.05, n_rows)
+prev_purchases = np.random.poisson(lam=3, size=n_rows)
+
+# Injecting missing values and outliers
+income[np.random.choice(n_rows, 15, replace=False)] = np.nan
+age[np.random.choice(n_rows, 10, replace=False)] = np.nan
+spend[np.random.choice(n_rows, 5, replace=False)] = 25000
+
+# Probability logic for Target Variable
+prob = 0.1 + (np.nan_to_num(age) > 25)*0.1 + (np.nan_to_num(income) > 70000)*0.2 + (prev_purchases > 3)*0.2 + (gender == 'Female')*0.1
+purchased = np.random.binomial(1, np.clip(prob, 0.05, 0.95))
+
+df = pd.DataFrame({
+    'Age': age, 'Gender': gender, 'Skin_Type': skin_type, 
+    'Income': income, 'Spend': spend, 'Previous_Purchases': prev_purchases, 
+    'Purchased_New_Product': purchased
+})
+
+# Save the file
+df.to_csv('cosmetic_customers_synthetic.csv', index=False)
+print("✅ Data saved as 'cosmetic_customers_synthetic.csv'\n")
+
+# Age Groups for EDA
+bins = [17, 25, 35, 45, 55, 120]
+labels = ['18-25', '26-35', '36-45', '46-55', '56+']
+df['Age_Group'] = pd.cut(df['Age'], bins=bins, labels=labels)
+
+print("📊 Step 2: Plotting Exploratory Data Analysis (EDA)...")
+# ==========================================
+# PART 2: EDA (WITH OVERLAP FIXES)
+# ==========================================
+fig, axes = plt.subplots(2, 2, figsize=(16, 12)) # Bada Canvas
+fig.suptitle('EDA: Demographics & Purchase Rates', fontsize=18, weight='bold')
+
+# Plot 1: Age Histogram
+sns.histplot(df['Age'].dropna(), bins=20, kde=True, ax=axes[0, 0], color='skyblue')
+axes[0, 0].set_title('Age Distribution')
+
+# Plot 2: Gender Breakdown
+sns.countplot(data=df, x='Gender', ax=axes[0, 1], order=df['Gender'].dropna().value_counts().index)
+axes[0, 1].set_title('Gender Breakdown')
+
+# Plot 3: Skin Type (FIXED OVERLAPPING HERE)
+sns.countplot(data=df, x='Skin_Type', ax=axes[1, 0], order=df['Skin_Type'].dropna().value_counts().index)
+axes[1, 0].set_title('Skin Type Breakdown')
+axes[1, 0].tick_params(axis='x', rotation=45)
+for label in axes[1, 0].get_xticklabels():
+    label.set_ha('right') # Align labels perfectly
+
+# Plot 4: Purchase Rate by Age
+purchase_rate = df.groupby('Age_Group', observed=False)['Purchased_New_Product'].mean().reset_index()
+sns.barplot(data=purchase_rate, x='Age_Group', y='Purchased_New_Product', ax=axes[1, 1], color='coral')
+axes[1, 1].set_title('Purchase Conversion Rate by Age Group')
+
+plt.tight_layout(pad=3.0) # EXTRA PADDING ADDED
+plt.show()
+
+print("\n⚙️ Step 3: Data Preprocessing & Model Tuning (Please wait 10-20 seconds)...")
+# ==========================================
+# PART 3: PREPROCESSING & PIPELINE
+# ==========================================
+X = df.drop(['Purchased_New_Product', 'Age_Group'], axis=1) # Age_Group sirf EDA ke liye tha
+y = df['Purchased_New_Product']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+numeric_features = ['Age', 'Income', 'Spend', 'Previous_Purchases']
+categorical_features = ['Gender', 'Skin_Type']
+
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler())
+])
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore', drop='first'))
+])
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num', numeric_transformer, numeric_features),
+    ('cat', categorical_transformer, categorical_features)
+])
+
+# ==========================================
+# PART 4: MODEL TRAINING (RANDOM FOREST)
+# ==========================================
+rf_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(random_state=42))
+])
+
+param_grid = {
+    'classifier__n_estimators': [100, 200],
+    'classifier__max_depth': [5, 10],
+    'classifier__class_weight': ['balanced'] # Fixes Class Imbalance
+}
+
+grid_search = GridSearchCV(rf_pipeline, param_grid, cv=5, scoring='recall', n_jobs=-1)
+grid_search.fit(X_train, y_train)
+
+best_rf = grid_search.best_estimator_
+y_pred = best_rf.predict(X_test)
+
+print("✅ Model Trained Successfully!")
+print("\n--- FINAL MODEL EVALUATION ---")
+print(classification_report(y_test, y_pred))
+
+print("\n📈 Step 4: Extracting Feature Importances...")
+# ==========================================
+# PART 5: FEATURE IMPORTANCE (WITH FIXES)
+# ==========================================
+final_model = best_rf.named_steps['classifier']
+cat_encoder = best_rf.named_steps['preprocessor'].named_transformers_['cat'].named_steps['onehot']
+cat_feature_names = cat_encoder.get_feature_names_out(categorical_features)
+all_feature_names = numeric_features + list(cat_feature_names)
+
+importances = final_model.feature_importances_
+feature_imp_df = pd.DataFrame({'Feature': all_feature_names, 'Importance': importances}).sort_values(by='Importance', ascending=False)
+
+# Plotting Feature Importance
+plt.figure(figsize=(12, 8)) # Bada canvas taaki text na takraye
+sns.barplot(x='Importance', y='Feature', data=feature_imp_df, palette='viridis')
+
+plt.title('Final Insights: What Drives the Purchase?', fontsize=16, weight='bold')
+plt.xlabel('Importance Score', fontsize=12)
+plt.ylabel('Features', fontsize=12)
+plt.tight_layout(pad=3.0) # EXTRA PADDING
+plt.show()
+
+print("Thankyou")

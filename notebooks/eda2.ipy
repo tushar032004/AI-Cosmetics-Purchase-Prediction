@@ -1,0 +1,404 @@
+import pandas as pd
+
+# Load dataset
+df = pd.read_csv("data/processed/cleaned_cosmetics_dataset.csv")
+
+# Check rows and columns
+print("Dataset Shape:", df.shape)
+
+# Column names
+print("\nColumn Names:")
+print(df.columns.tolist())
+
+# First 5 rows
+print("\nFirst 5 Rows:")
+print(df.head())
+
+# Data types
+print("\nData Types:")
+print(df.dtypes)
+
+
+# Step 2: Missing Values & Duplicate Values
+
+print("\nMissing Values:")
+print(df.isnull().sum())
+
+print("\nDuplicate Rows:")
+print(df.duplicated().sum())
+
+# Step 3: Numerical & Categorical Columns
+
+# Numerical columns
+numerical_columns = df.select_dtypes(
+    include="number"
+).columns.tolist()
+
+print("\nNumerical Columns:")
+print(numerical_columns)
+
+# Categorical columns
+categorical_columns = df.select_dtypes(
+    include="object"
+).columns.tolist()
+
+print("\nCategorical Columns:")
+print(categorical_columns)
+
+
+# Step 4: Descriptive Statistics
+
+print("\nDescriptive Statistics:")
+print(df.describe())
+
+print("\nImportant Columns Statistics:")
+
+print(df[[
+    "tenure",
+    "total",
+    "income",
+    "quantity"
+]].describe())
+
+# Step 5: Purchased Column Analysis
+
+print("\nPurchase Counts:")
+print(df["purchased"].value_counts())
+
+print("\nPurchase Percentages:")
+print(df["purchased"].value_counts(normalize=True) * 100)
+
+
+
+import matplotlib.pyplot as plt
+
+# Graph 1: Purchase distribution
+purchase_counts = df["purchased"].value_counts().sort_index()
+
+# Calculate percentages
+purchase_percentages = (
+    purchase_counts / purchase_counts.sum()
+) * 100
+
+plt.figure(figsize=(6, 4))
+
+bars = plt.bar(
+    ["Not Purchased", "Purchased"],
+    purchase_counts.values
+)
+
+plt.title("Purchase Distribution")
+plt.xlabel("Purchase Status")
+plt.ylabel("Number of Customers")
+
+# Add count and percentage labels
+for bar, count, percentage in zip(
+    bars,
+    purchase_counts.values,
+    purchase_percentages.values
+):
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 100,
+        f"{count} ({percentage:.1f}%)",
+        ha="center",
+        fontsize=10
+    )
+
+plt.tight_layout()
+plt.show()
+
+
+# Graph 2: Gender Distribution
+
+import matplotlib.pyplot as plt
+
+# Count gender categories
+gender_counts = df["sex"].value_counts()
+
+print("\nGender Distribution:")
+print(gender_counts)
+
+# Create bar chart
+plt.figure(figsize=(6, 4))
+
+bars = plt.bar(
+    gender_counts.index,
+    gender_counts.values
+)
+
+plt.title("Gender Distribution")
+plt.xlabel("Gender")
+plt.ylabel("Number of Customers")
+
+# Add count labels
+for bar, count in zip(bars, gender_counts.values):
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 50,
+        str(count),
+        ha="center",
+        fontsize=10
+    )
+
+plt.tight_layout()
+plt.show()
+
+
+# Graph 3: Age Group Distribution
+
+import matplotlib.pyplot as plt
+
+# Count age groups
+age_counts = df["age_group"].value_counts()
+
+print("\nAge Group Distribution:")
+print(age_counts)
+
+# Calculate percentages
+age_percentages = (
+    age_counts / age_counts.sum()
+) * 100
+
+# Create bar chart
+plt.figure(figsize=(8, 5))
+
+bars = plt.bar(
+    age_counts.index,
+    age_counts.values
+)
+
+plt.title("Age Group Distribution")
+plt.xlabel("Age Group")
+plt.ylabel("Number of Customers")
+
+# Add count and percentage labels
+for bar, count, percentage in zip(
+    bars,
+    age_counts.values,
+    age_percentages.values
+):
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 50,
+        f"{count} ({percentage:.1f}%)",
+        ha="center",
+        fontsize=9
+    )
+
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+
+# Graph 4: Region Distribution
+
+import matplotlib.pyplot as plt
+
+# Count regions
+region_counts = df["region"].value_counts()
+
+print("\nRegion Distribution:")
+print(region_counts)
+
+# Calculate percentages
+region_percentages = (
+    region_counts / region_counts.sum()
+) * 100
+
+# Create bar chart
+plt.figure(figsize=(8, 5))
+
+bars = plt.bar(
+    region_counts.index,
+    region_counts.values
+)
+
+plt.title("Region Distribution")
+plt.xlabel("Region")
+plt.ylabel("Number of Customers")
+
+# Add count and percentage labels
+for bar, count, percentage in zip(
+    bars,
+    region_counts.values,
+    region_percentages.values
+):
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 50,
+        f"{count} ({percentage:.1f}%)",
+        ha="center",
+        fontsize=9
+    )
+
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+
+# Step 6: Status Distribution
+
+status_counts = df["status"].value_counts()
+
+print("\nStatus Distribution:")
+print(status_counts)
+
+# Graph
+plt.figure(figsize=(8, 5))
+
+bars = plt.bar(
+    status_counts.index,
+    status_counts.values
+)
+
+plt.title("Status Distribution")
+plt.xlabel("Status")
+plt.ylabel("Number of Customers")
+
+# Values on bars
+for bar in bars:
+    height = bar.get_height()
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        height,
+        str(int(height)),
+        ha="center",
+        va="bottom"
+    )
+
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+
+# Step 7: Income Distribution
+
+plt.figure(figsize=(8, 5))
+
+plt.hist(
+    df["income"],
+    bins=20,
+    edgecolor="black"
+)
+
+plt.title("Income Distribution")
+plt.xlabel("Income")
+plt.ylabel("Number of Customers")
+
+plt.tight_layout()
+plt.show()
+
+# Step 8: Tenure Distribution
+
+plt.figure(figsize=(8, 5))
+
+plt.hist(
+    df["tenure"],
+    bins=20,
+    edgecolor="black"
+)
+
+plt.title("Tenure Distribution")
+plt.xlabel("Tenure (Months)")
+plt.ylabel("Number of Customers")
+
+plt.tight_layout()
+plt.show()
+
+
+# Total Spending Distribution
+
+plt.figure(figsize=(10, 6))
+
+plt.hist(df['total'], bins=20, edgecolor='black')
+
+plt.title('Total Spending Distribution')
+plt.xlabel('Total Spending')
+plt.ylabel('Number of Customers')
+
+plt.tight_layout()
+plt.show()
+
+# Income vs Total Spending
+
+plt.figure(figsize=(10, 6))
+
+plt.scatter(df["income"], df["total"], alpha=0.5)
+
+plt.title("Income vs Total Spending")
+plt.xlabel("Income")
+plt.ylabel("Total Spending")
+
+plt.tight_layout()
+plt.show()
+
+# Purchase vs Total Spending
+
+plt.figure(figsize=(8, 6))
+
+plt.boxplot(
+    [
+        df[df["purchased"] == 0]["total"],
+        df[df["purchased"] == 1]["total"]
+    ],
+    tick_labels=["Not Purchased", "Purchased"]
+)
+
+plt.title("Purchase vs Total Spending")
+plt.xlabel("Purchase Status")
+plt.ylabel("Total Spending")
+
+plt.tight_layout()
+plt.show()
+
+
+plt.figure(figsize=(8, 5))
+
+plt.hist(df["quantity"], bins=30, edgecolor="black")
+
+plt.title("Quantity Distribution")
+plt.xlabel("Quantity")
+plt.ylabel("Number of Customers")
+
+plt.show()
+
+# Graph 14: Correlation Heatmap
+
+import numpy as np
+
+numeric_df = df.select_dtypes(include="number")
+corr = numeric_df.corr()
+
+plt.figure(figsize=(10, 7))
+
+plt.imshow(corr, cmap="coolwarm", interpolation="none")
+plt.colorbar(label="Correlation")
+
+plt.xticks(
+    range(len(corr.columns)),
+    corr.columns,
+    rotation=45,
+    ha="right"
+)
+
+plt.yticks(
+    range(len(corr.columns)),
+    corr.columns
+)
+
+plt.title("Correlation Heatmap")
+
+# Values graph ke andar show karna
+for i in range(len(corr.columns)):
+    for j in range(len(corr.columns)):
+        plt.text(
+            j,
+            i,
+            round(corr.iloc[i, j], 2),
+            ha="center",
+            va="center"
+        )
+
+plt.tight_layout()
+plt.show()

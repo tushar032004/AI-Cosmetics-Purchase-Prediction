@@ -1,0 +1,25 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment variables and secrets
+.env
+
+# Model and temporary files
+*.pkl
+*.joblib
+
+# Large or private data (review before publishing)
+# data/raw/
+
+# IDE settings
+.vscode/
