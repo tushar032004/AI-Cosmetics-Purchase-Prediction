@@ -1,0 +1,52 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🚀 Run Streamlit Dashboard",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "${workspaceFolder}/app.py"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "🌲 Run Random Forest Model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/models/randomforest.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "📈 Run Logistic Regression Model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/models/logisticregression.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "🌳 Run Decision Tree Model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/models/decisiontree.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "🧹 Run Data Cleaning Pipeline",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/notebooks/01_data_cleaning.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "🐍 Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
