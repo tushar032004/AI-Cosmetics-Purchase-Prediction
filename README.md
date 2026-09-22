@@ -36,16 +36,18 @@ $$\text{Expected Buyers in Cohort } k = \sum_{i \in \text{Cohort } k} P(\text{Pu
 
 ```mermaid
 flowchart LR
-    A["Raw Customer Data<br/>(10,000 Records)"] --> B["EDA & Data Cleaning<br/>(Outlier Treatment)"]
-    B --> C["Feature Preprocessing<br/>(OneHotEncoder)"]
-    C --> D["Stratified 80/20<br/>Train/Test Split"]
-    D --> E["Model Training<br/>(LR ✦ DT ✦ RF)"]
-    E --> F["Probabilistic Scoring<br/>(predict_proba)"]
-    F --> G["Cohort Demand Aggregation<br/>(∑ P by Age Group)"]
-    G --> H["Executive Marketing<br/>Budget Allocation"]
+    A["Raw Customer Data<br>10,000 Records"] --> B["EDA and Data Cleaning<br>Outlier Treatment"]
+    B --> C["Feature Preprocessing<br>OneHotEncoder"]
+    C --> D["Stratified Train/Test Split<br>80/20"]
+    D --> E["Model Training<br>Logistic Regression | Decision Tree | Random Forest"]
+    E --> F["Probabilistic Scoring<br>predict_proba"]
+    F --> G["Cohort Demand Aggregation<br>Sum Probability by Age Group"]
+    G --> H["Executive Marketing<br>Budget Allocation"]
 ```
 
----
+### Workflow Summary
+
+**Raw Customer Data → Data Cleaning → Feature Preprocessing → Train/Test Split → Model Training → Probability Prediction → Cohort-Level Demand Aggregation → Marketing Budget Allocation**
 
 ## 📊 Model Benchmarks & Evaluation
 
