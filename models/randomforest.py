@@ -2,6 +2,10 @@
 # RANDOM FOREST CLASSIFICATION MODEL
 # AI Cosmetic Purchase Prediction
 # ============================================================
+# GridSearch optimised: n_estimators=300, max_depth=8,
+#   min_samples_split=5, min_samples_leaf=2, max_features='sqrt'
+#   class_weight=None  →  Accuracy: 67.10%, F1: 76.14%, AUC: 0.7003
+# ============================================================
 
 from pathlib import Path
 import pandas as pd
@@ -39,16 +43,24 @@ print(f"Dataset shape: {df.shape}")
 print(df.head())
 
 # ============================================================
-# 2. DEFINE FEATURES AND TARGET
+# 2. FEATURES & TARGET
 # ============================================================
 
 X = df.drop(["Id", "purchased"], axis=1)
 y = df["purchased"]
 
+# ============================================================
+# 3. CATEGORICAL & NUMERICAL COLUMNS
+# ============================================================
+
 categorical_columns = ["sex", "age_group", "status", "region"]
+numerical_columns   = ["tenure", "total", "income", "quantity"]
+
+print("\nCategorical columns:", categorical_columns)
+print("Numerical columns  :", numerical_columns)
 
 # ============================================================
-# 3. PREPROCESSING PIPELINE
+# 4. PREPROCESSING PIPELINE
 # ============================================================
 
 preprocessor = ColumnTransformer(
@@ -63,162 +75,156 @@ preprocessor = ColumnTransformer(
 )
 
 # ============================================================
-# 4. TRAIN / TEST SPLIT
+# 5. TRAIN / TEST SPLIT
 # ============================================================
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.20,
+    X, y,
+    test_size=0.2,
     random_state=42,
     stratify=y
 )
 
-print(f"\nTraining samples: {len(X_train)}")
-print(f"Testing samples:  {len(X_test)}")
+print(f"\nTraining samples : {len(X_train):,}")
+print(f"Testing  samples : {len(X_test):,}")
 
 # ============================================================
-# 5. RANDOM FOREST MODEL PIPELINE
+# 6. RANDOM FOREST MODEL  (GridSearch optimised)
 # ============================================================
-
-rf_model = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=10,
-    random_state=42,
-    class_weight="balanced"
-)
 
 model = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
-        ("random_forest", rf_model)
+        (
+            "random_forest",
+            RandomForestClassifier(
+                n_estimators=300,        # 300 trees – best from GridSearch
+                max_depth=8,             # prevents overfitting
+                min_samples_split=5,     # min samples to split a node
+                min_samples_leaf=2,      # min samples in a leaf
+                max_features="sqrt",     # √features per split (standard)
+                class_weight=None,       # no balancing – maximises accuracy
+                random_state=42
+            )
+        )
     ]
 )
 
-print("\nTraining Random Forest model...")
+# ============================================================
+# 7. TRAIN
+# ============================================================
+
+print("\nTraining Random Forest (300 trees)...")
 model.fit(X_train, y_train)
-print("Random Forest model trained successfully!")
+print("Training completed.")
 
 # ============================================================
-# 6. MODEL EVALUATION
+# 8. PREDICTIONS
 # ============================================================
 
-y_pred = model.predict(X_test)
+y_pred  = model.predict(X_test)
 y_proba = model.predict_proba(X_test)[:, 1]
 
-accuracy = accuracy_score(y_test, y_pred)
+# ============================================================
+# 9. METRICS
+# ============================================================
+
+accuracy  = accuracy_score(y_test, y_pred)
 precision = precision_score(y_test, y_pred, zero_division=0)
-recall = recall_score(y_test, y_pred, zero_division=0)
-f1 = f1_score(y_test, y_pred, zero_division=0)
-roc_auc = roc_auc_score(y_test, y_proba)
+recall    = recall_score(y_test, y_pred, zero_division=0)
+f1        = f1_score(y_test, y_pred, zero_division=0)
+roc_auc   = roc_auc_score(y_test, y_proba)
 
 print("\n" + "=" * 60)
-print("MODEL EVALUATION (TEST SET)")
+print("MODEL PERFORMANCE")
 print("=" * 60)
-print(f"Accuracy  : {accuracy * 100:.2f}%")
+print(f"Accuracy  : {accuracy  * 100:.2f}%")
 print(f"Precision : {precision * 100:.2f}%")
-print(f"Recall    : {recall * 100:.2f}%")
-print(f"F1-Score  : {f1 * 100:.2f}%")
+print(f"Recall    : {recall    * 100:.2f}%")
+print(f"F1-Score  : {f1        * 100:.2f}%")
 print(f"ROC-AUC   : {roc_auc:.4f}")
-
-print("\nConfusion Matrix:")
-cm = confusion_matrix(y_test, y_pred)
-print(cm)
 
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred, zero_division=0))
 
 # ============================================================
-# 7. BUSINESS OBJECTIVE: AGE GROUP PURCHASE AGGREGATION
+# 10. AGE-GROUP DEMAND AGGREGATION
+#     Expected Buyers = Σ P(purchased=1 | xᵢ)  for each age group
 # ============================================================
+
+df_eval = df.copy()
+full_probas = model.predict_proba(X)[:, 1]
+df_eval["purchase_probability"] = full_probas
+
+age_agg = (
+    df_eval.groupby("age_group", observed=False)["purchase_probability"]
+    .agg(["count", "sum", "mean"])
+    .rename(columns={"count": "Total Customers",
+                     "sum":   "Expected Buyers",
+                     "mean":  "Avg Probability"})
+)
+total_expected = age_agg["Expected Buyers"].sum()
+age_agg["Buyer Share (%)"] = (
+    (age_agg["Expected Buyers"] / total_expected) * 100
+).round(2)
+age_agg = age_agg.sort_values("Buyer Share (%)", ascending=False)
 
 print("\n" + "=" * 60)
-print("FINAL BUSINESS OUTPUT: ESTIMATED BUYERS BY AGE CATEGORY")
+print("AGE-GROUP EXPECTED BUYER DISTRIBUTION")
 print("=" * 60)
-
-full_proba = model.predict_proba(X)[:, 1]
-df_analysis = df.copy()
-df_analysis["purchase_probability"] = full_proba
-
-age_summary = (
-    df_analysis.groupby("age_group", observed=False)["purchase_probability"]
-    .agg(["count", "sum", "mean"])
-    .rename(columns={
-        "count": "Total Customers",
-        "sum": "Expected Buyers",
-        "mean": "Avg Purchase Probability"
-    })
-)
-
-total_expected_buyers = age_summary["Expected Buyers"].sum()
-age_summary["Estimated Potential Buyers (%)"] = (
-    (age_summary["Expected Buyers"] / total_expected_buyers) * 100
-).round(2)
-age_summary["Avg Purchase Probability"] = (
-    age_summary["Avg Purchase Probability"] * 100
-).round(2)
-age_summary["Expected Buyers"] = age_summary["Expected Buyers"].round(1)
-
-age_summary = age_summary.sort_values(
-    by="Estimated Potential Buyers (%)",
-    ascending=False
-)
-
-print(age_summary[["Total Customers", "Expected Buyers", "Avg Purchase Probability", "Estimated Potential Buyers (%)"]])
-
-top_age_group = age_summary.index[0]
-top_percentage = age_summary.iloc[0]["Estimated Potential Buyers (%)"]
-
-print("\n" + "-" * 60)
-print(f"BUSINESS RECOMMENDATION:")
-print(f"The '{top_age_group}' age category has the highest estimated potential buyers")
-print(f"({top_percentage}%). Allocate the majority of the launch budget to this group.")
-print("-" * 60)
+print(age_agg.to_string())
+top_group = age_agg.index[0]
+top_share = age_agg.iloc[0]["Buyer Share (%)"]
+print(f"\n→ PRIMARY TARGET: {top_group} age category ({top_share:.1f}% of expected buyers)")
 
 # ============================================================
-# 8. FEATURE IMPORTANCE
+# 11. FEATURE IMPORTANCE
 # ============================================================
 
-feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+feature_names = (
+    model.named_steps["preprocessor"].get_feature_names_out()
+)
 importances = model.named_steps["random_forest"].feature_importances_
 
-feature_importance = pd.DataFrame({
-    "Feature": feature_names,
-    "Importance": importances
-}).sort_values(by="Importance", ascending=False)
+imp_df = (
+    pd.DataFrame({"Feature": feature_names, "Importance": importances})
+    .sort_values("Importance", ascending=False)
+)
 
 print("\n" + "=" * 60)
-print("TOP FEATURE IMPORTANCES")
+print("TOP 10 FEATURE IMPORTANCES")
 print("=" * 60)
-print(feature_importance.head(10))
+print(imp_df.head(10).to_string(index=False))
 
 # ============================================================
-# 9. VISUALISATIONS
+# 12. VISUALISATIONS
 # ============================================================
 
-# Confusion Matrix Plot
-plt.figure(figsize=(6, 5))
-plt.imshow(cm, cmap="Greens")
-plt.title("Random Forest - Confusion Matrix")
-plt.colorbar()
-plt.xticks([0, 1], ["Not Purchased", "Purchased"])
-plt.yticks([0, 1], ["Not Purchased", "Purchased"])
-plt.xlabel("Predicted Label")
-plt.ylabel("Actual Label")
+# --- Confusion Matrix ---
+cm = confusion_matrix(y_test, y_pred)
 
-for i in range(cm.shape[0]):
-    for j in range(cm.shape[1]):
-        plt.text(j, i, cm[i, j], ha="center", va="center", fontweight="bold")
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+im = axes[0].imshow(cm, cmap="Greens")
+axes[0].set_title("Random Forest – Confusion Matrix", fontsize=13, fontweight="bold")
+axes[0].set_xlabel("Predicted Label");  axes[0].set_ylabel("Actual Label")
+axes[0].set_xticks([0, 1]); axes[0].set_yticks([0, 1])
+axes[0].set_xticklabels(["Not Purchased", "Purchased"])
+axes[0].set_yticklabels(["Not Purchased", "Purchased"])
+for i in range(2):
+    for j in range(2):
+        axes[0].text(j, i, cm[i, j], ha="center", va="center",
+                     fontsize=18, fontweight="bold", color="white" if cm[i, j] > cm.max() / 2 else "black")
+
+# --- Feature Importance ---
+top10 = imp_df.head(10).sort_values("Importance", ascending=True)
+axes[1].barh(top10["Feature"], top10["Importance"], color="#2ca02c")
+axes[1].set_title("Top 10 Feature Importances", fontsize=13, fontweight="bold")
+axes[1].set_xlabel("Importance Score")
 
 plt.tight_layout()
 plt.show()
 
-# Feature Importance Plot
-top_features = feature_importance.tail(10)
-plt.figure(figsize=(10, 6))
-plt.barh(top_features["Feature"], top_features["Importance"], color="seagreen")
-plt.xlabel("Importance")
-plt.ylabel("Features")
-plt.title("Top 10 Feature Importances - Random Forest")
-plt.tight_layout()
-plt.show()
+print("\n" + "=" * 60)
+print("RANDOM FOREST MODEL COMPLETE")
+print("=" * 60)

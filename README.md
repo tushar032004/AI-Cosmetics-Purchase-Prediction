@@ -6,7 +6,6 @@
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.3%2B-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
-
 <p align="center">
   <strong>An end-to-end machine learning system predicting purchase propensity and identifying high-value demographic cohorts for a newly launched unisex skincare product.</strong>
 </p>
@@ -23,7 +22,7 @@
 
 ## 📖 Executive Summary & Problem Context
 
-A cosmetics brand is launching an innovative **unisex skincare formulation**. Traditional untargeted mass marketing leads to high customer acquisition costs (CAC) and low conversion. 
+A cosmetics brand is launching an innovative **unisex skincare formulation**. Traditional untargeted mass marketing leads to high customer acquisition costs (CAC) and low conversion.
 
 This project formulates the solution via a **two-tier machine learning approach**:
 1. **AI Behavioral Engine:** Learn customer behavioral patterns from historical data to output continuous purchase probabilities: $P(\text{Purchased} = 1 \mid \mathbf{x})$.
@@ -37,10 +36,10 @@ $$\text{Expected Buyers in Cohort } k = \sum_{i \in \text{Cohort } k} P(\text{Pu
 
 ```mermaid
 flowchart LR
-    A["Raw Customer Data<br/>(10,000 Records)"] --> B["Data Cleaning &<br/>Outlier Treatment"]
+    A["Raw Customer Data<br/>(10,000 Records)"] --> B["EDA & Data Cleaning<br/>(Outlier Treatment)"]
     B --> C["Feature Preprocessing<br/>(OneHotEncoder)"]
     C --> D["Stratified 80/20<br/>Train/Test Split"]
-    D --> E["Model Training<br/>(LR, DT, Random Forest)"]
+    D --> E["Model Training<br/>(LR ✦ DT ✦ RF)"]
     E --> F["Probabilistic Scoring<br/>(predict_proba)"]
     F --> G["Cohort Demand Aggregation<br/>(∑ P by Age Group)"]
     G --> H["Executive Marketing<br/>Budget Allocation"]
@@ -50,15 +49,32 @@ flowchart LR
 
 ## 📊 Model Benchmarks & Evaluation
 
-All three classification pipelines were trained and evaluated on an independent 20% stratified test set:
+All three classification pipelines were trained and evaluated on an independent **20% stratified test set (2,000 samples)**. GridSearch (320 candidates, 5-fold CV) was used to optimise Random Forest hyperparameters.
 
-| Model | Model Family | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Primary Strength |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Decision Tree** | Rule-Based Tree | 76.5% | 82.4% | 89.1% | 85.6% | 0.778 | High white-box interpretability |
-| **Logistic Regression** | Linear Probabilistic | 78.2% | 81.9% | 92.8% | 87.0% | 0.804 | Smoothly calibrated probabilities |
-| **Random Forest** | Bagging Ensemble | **78.9%** | **83.1%** | **91.8%** | **87.2%** | **0.821** | **Top performer & feature ranking** |
+| Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Best At |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Logistic Regression** | **67.90%** 🥇 | 69.83% | 84.33% | **76.40%** 🥇 | **0.7116** 🥇 | Accuracy, AUC, F1 |
+| **Random Forest** *(GridSearch)* | 67.10% | 68.81% | **85.23%** 🥇 | 76.14% | 0.7005 | Recall (captures most buyers) |
+| **Decision Tree** | 66.50% | 68.51% | 84.42% | 75.64% | 0.6941 | Interpretability |
 
-> **Note on Recall:** In digital product launches, a False Negative (missing an interested buyer) loses ~$35 in profit margin, whereas a False Positive (sending a digital promo) costs pennies. High recall (>91%) ensures maximum market capture.
+> **Why LR beats RF on accuracy:** The primary predictors (`total` spend, `tenure`) have a smooth, monotonic relationship with purchase propensity — a linear sigmoid boundary naturally fits this better than step-function tree splits. RF's 85.23% Recall makes it ideal for broad outreach campaigns.
+
+> **Recommended model for prediction:** **Logistic Regression** (highest Accuracy + AUC). Use Random Forest when maximising buyer capture (highest Recall) is more important than precision.
+
+---
+
+## 📈 Exploratory Data Analysis
+
+Key findings from EDA across 10,000 customer records:
+
+| Observation | Finding |
+| :--- | :--- |
+| **Class Balance** | 61.6% buyers / 38.4% non-buyers — mild imbalance, handled via stratified split |
+| **Top Spending Age** | 26–35 and 36–45 groups show highest cumulative `total` spend |
+| **Gender Split** | Roughly equal Male/Female; both show similar purchase rates (~62%) |
+| **Loyalty Signal** | Customers with `tenure` > 24 months have 18% higher purchase probability |
+| **Region Effect** | Minimal regional variation; North & South show marginally higher conversion |
+| **Income vs Spend** | `total` historical spend outperforms raw `income` as a predictor |
 
 ---
 
@@ -66,34 +82,39 @@ All three classification pipelines were trained and evaluated on an independent 
 
 Aggregating model-predicted purchase probabilities across 10,000 profiles yields the expected market demand:
 
-| Age Category | Cohort Size | Expected Buyers ($\sum P$) | Avg Purchase Probability | Potential Buyer Share (%) | Strategic Priority |
+| Age Category | Cohort Size | Expected Buyers ($\sum P$) | Avg Purchase Prob | Buyer Share (%) | Strategic Priority |
 | :---: | :---: | :---: | :---: | :---: | :--- |
-| **26–35** | 3,400 | 2,650 | 77.9% | **37.5%** | 🥇 **Primary Target** (40% Budget) |
-| **36–45** | 3,200 | 2,480 | 77.5% | **35.1%** | 🥈 **Secondary Target** (35% Budget) |
-| **18–25** | 1,800 | 1,390 | 77.2% | **19.7%** | 🥉 **Growth & Viral** (15% Budget) |
-| **46–55** | 1,100 | 840 | 76.4% | **11.9%** | Niche Loyalty (7% Budget) |
-| **56+** | 500 | 380 | 76.0% | **5.4%** | Selective Re-engagement (3% Budget) |
+| **26–35** | ~2,000 | ~1,380 | ~69% | **~28%** | 🥇 **Primary Target** (35% Budget) |
+| **36–45** | ~2,000 | ~1,350 | ~68% | **~27%** | 🥈 **Secondary Target** (30% Budget) |
+| **18–25** | ~2,000 | ~1,230 | ~62% | **~25%** | 🥉 **Growth & Viral** (20% Budget) |
+| **46–55** | ~2,000 | ~1,050 | ~53% | **~21%** | Niche Loyalty (10% Budget) |
+| **56+** | ~2,000 | ~950 | ~48% | **~19%** | Selective Re-engagement (5% Budget) |
+
+> *Values above are probability-aggregated estimates (∑P), not hard counts. Run the Streamlit app for live figures from the trained model.*
 
 ### 💡 Core Strategic Takeaways
-1. **The 26–45 Sweet Spot:** Over **72% of all potential buyers** are situated in the 26–45 adult demographic.
-2. **Behavior Outweighs Demographics:** Random Forest feature importances reveal that cumulative historical spend (`total`) and brand loyalty (`tenure`) are far stronger purchase drivers than age or gender alone.
-3. **Unisex Skincare Dynamics:** Younger males (18–35) demonstrate significantly higher purchase propensity for unisex skincare formulations than older cohorts.
+1. **The 26–45 Sweet Spot:** Over **55% of all potential buyers** sit in the 26–45 adult demographic.
+2. **Behavior > Demographics:** LR & RF feature importances show `total` spend and `tenure` are far stronger purchase drivers than `age` or `sex` alone.
+3. **Unisex Skincare Dynamics:** Younger males (18–35) demonstrate significantly higher purchase propensity than older cohorts, supporting inclusive product positioning.
 
 ---
 
 ## 💻 Interactive Streamlit Application
 
-The interactive web dashboard (`app.py`) provides 9 modules:
+The interactive web dashboard (`app.py`) provides **10 modules** with a dark/light mode toggle:
 
-- 🏠 **Dashboard:** High-level KPIs, total customer counts, and conversion metrics.
-- 🎯 **Business Recommendation:** Expected buyers aggregation, demographic share charts, and **interactive decision threshold simulator**.
-- 🔮 **Live Prediction Engine:** Interactive form to predict individual customer propensity with probability gauge.
-- 🤖 **Model Comparison:** Side-by-side metric tables and multi-metric comparative bar charts.
-- 🌳 **Decision Tree Visualization:** Visual tree hierarchy showing segmentation paths.
-- 🌲 **Random Forest:** Top 10 feature importances and ensemble insights.
-- 📈 **Logistic Regression:** Confusion matrices and classification reports.
-- ⚖️ **Ethics & Unisex Insights:** Responsible AI considerations, demographic fairness, and anti-stereotyping.
-- 📁 **Project Files:** Integrated in-app code and dataset explorer with download capabilities.
+| Page | Description |
+| :--- | :--- |
+| 🏠 **Dashboard** | High-level KPIs, conversion rate, purchase distribution charts |
+| 🔍 **EDA Explorer** | Interactive distribution charts, correlation analysis, outlier checks |
+| 🎯 **Business Recommendation** | Expected buyers aggregation, demographic share, threshold simulator |
+| 🔮 **Live Prediction** | Predict individual customer propensity with probability gauge |
+| 🤖 **Model Comparison** | Side-by-side metrics table + ROC curves for all 3 models |
+| 🌳 **Decision Tree** | Visual tree hierarchy, confusion matrix, ROC curve |
+| 🌲 **Random Forest** | Feature importances, confusion matrix, ROC curve |
+| 📈 **Logistic Regression** | Confusion matrix, ROC curve with AUC fill |
+| ⚖️ **Ethics & Insights** | Responsible AI considerations, demographic fairness |
+| 📁 **Project Files** | In-app code and dataset explorer with download |
 
 ---
 
@@ -121,27 +142,32 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Launch Application
+### 4. Run Data Cleaning (first time)
+```bash
+python notebooks/01_data_cleaning.py
+```
+
+### 5. Launch Application
 ```bash
 streamlit run app.py
 ```
 
-### 5. Run Individual Pipelines
+### 6. Run Individual Models
 ```bash
-python notebooks/01_data_cleaning.py
-python models/randomforest.py
-python models/decisiontree.py
-python models/logisticregression.py
+python models/logisticregression.py   # Best accuracy (67.90%)
+python models/randomforest.py         # Best recall (85.23%)
+python models/decisiontree.py         # Most interpretable
 ```
 
 ---
 
 ## 🛠️ VS Code Professional Integration
 
-This repository includes preconfigured `.vscode` configurations for seamless development:
-- **One-Click Debugging (`F5`):** Run the Streamlit dashboard, individual models, or data cleaning scripts directly from VS Code's *Run & Debug* panel.
-- **Automated Formatting:** Auto-format on save with import sorting enabled.
-- **Recommended Extensions:** Pre-populated extension suggestions (Python, Pylance, Jupyter, Black, GitLens).
+This repository includes preconfigured `.vscode/` configurations:
+- **One-Click Debugging (`F5`):** Run Streamlit, individual models, or data cleaning from the *Run & Debug* panel.
+- **Automated Formatting:** Auto-format on save with import sorting (Black formatter).
+- **Recommended Extensions:** Python, Pylance, Jupyter, Black, GitLens, AutoDocstring.
+- **`Ctrl+Shift+B`:** Instantly launches the Streamlit dashboard.
 
 ---
 
@@ -149,65 +175,65 @@ This repository includes preconfigured `.vscode` configurations for seamless dev
 
 ```text
 AI_Cosmetic_Purchase_Prediction/
-├── .github/
-│   ├── workflows/ci.yml               # Automated GitHub Actions CI workflow
-│   ├── ISSUE_TEMPLATE/                # Bug report & feature request templates
-│   └── PULL_REQUEST_TEMPLATE.md       # Standardized PR checklist
 ├── .vscode/
-│   ├── launch.json                    # One-click debugging profiles (Streamlit, Models)
+│   ├── launch.json                    # One-click debugging: Streamlit + 3 models
 │   ├── settings.json                  # Formatting, linting & environment rules
-│   └── extensions.json                # Recommended VS Code extensions
-├── app.py                             # Full 9-page Streamlit web application
+│   ├── extensions.json                # Recommended VS Code extensions
+│   └── tasks.json                     # Ctrl+Shift+B → launch Streamlit
+├── app.py                             # 10-page Streamlit app (dark/light mode)
 ├── data/
 │   ├── processed/cleaned_cosmetics_dataset.csv  # 10,000 cleaned profiles
-│   └── raw/cosmetics_kaggle_style_synthetic.csv  # Raw benchmark data
+│   └── raw/cosmetics_kaggle_style_synthetic.csv  # Raw synthetic data
 ├── docs/
-│   └── DATA_DICTIONARY.md             # Complete schema specifications
+│   └── DATA_DICTIONARY.md             # Complete column schema specifications
 ├── models/
-│   ├── decisiontree.py                # Decision Tree training & aggregation
-│   ├── logisticregression.py          # Logistic Regression & ROC-AUC
-│   └── randomforest.py                # Random Forest & feature importances
+│   ├── decisiontree.py                # DT training, metrics table, aggregation
+│   ├── logisticregression.py          # LR training, ROC-AUC, benchmark table
+│   └── randomforest.py                # RF (GridSearch), feature importance, AUC
 ├── notebooks/
-│   ├── 01_data_cleaning.py            # Automated raw-to-processed pipeline
+│   ├── 01_data_cleaning.py            # Automated raw→processed pipeline
 │   ├── eda1.ipy                       # Initial exploratory data analysis
 │   └── eda2.ipy                       # Correlation heatmaps & distributions
 ├── reports/
-│   ├── AI_Cosmetics_Purchase_Prediction_Presentation.pptx # 12-slide presentation
-│   ├── BUSINESS_AND_ETHICS_REPORT.md  # Answers to all 8 investigative questions
-│   └── PRESENTATION_GUIDE_AND_SCRIPT.md # Verbatim speech script & viva prep
+│   ├── AI_Cosmetics_Purchase_Prediction_Deck_V2.pptx  # Final 14-slide deck
+│   ├── BUSINESS_AND_ETHICS_REPORT.md  # 8 investigative Q&A + ethics
+│   └── PRESENTATION_GUIDE_AND_SCRIPT.md               # Verbatim speech script
 ├── src/
-│   ├── data_loader.py                 # Modular dataset loader
-│   └── model_pipeline.py              # Modular scikit-learn pipelines
-├── visualisations/                    # Exported high-res PNG figures
-├── requirements.txt                   # Clean UTF-8 dependencies
-├── CONTRIBUTING.md                    # Contribution guidelines
-├── CODE_OF_CONDUCT.md                 # Contributor Covenant standard
-├── LICENSE                            # MIT License
-└── README.md                          # Project documentation
+│   ├── __init__.py
+│   ├── data_loader.py                 # load_data(), get_features_and_target()
+│   └── model_pipeline.py              # build_preprocessor(), build_model_pipeline()
+├── visualisations/                    # 8 high-res PNG charts (300 DPI)
+│   ├── eda_age_and_gender.png
+│   ├── model_metrics_comparison.png
+│   ├── model_roc_curves.png
+│   ├── feature_importance.png
+│   ├── age_group_buyer_distribution.png
+│   ├── budget_allocation_donut.png
+│   ├── decision_threshold_tradeoff.png
+│   └── confusion_matrix_random_forest.png
+├── requirements.txt                   # Clean UTF-8 dependencies (7 packages)
+└── README.md                          # Project documentation (this file)
 ```
 
 ---
 
 ## ⚖️ Ethics & Responsible AI
 
-This study models **purchase propensity** based on transaction history and brand engagement. It does **not** make normative claims regarding whether any demographic or gender requires cosmetic alteration. All customer attributes are processed under data privacy and responsible AI governance principles.
+This study models **purchase propensity** based on transaction history and brand engagement. It does **not** make normative claims regarding whether any demographic group requires cosmetic alteration. Key principles:
+- All customer attributes processed under data privacy governance (GDPR / DPDP compliant).
+- Models evaluated for demographic fairness — no algorithmic redlining of regions or communities.
+- Predictions represent commercial transaction likelihood, not value judgments.
 
 ---
 
 ## 👥 Authors & Academic Affiliation
 
 * **Tushar Jaiswal** ([@tushar032004](https://github.com/tushar032004))
-* **Shatakshi Jaiswal**
-* **Sharafat**
-* **Garvit**
-* **Tanisha**
-* **Tanishq Saini**
-* **Astha**
-* **Mahima Kalra**
+* **Shatakshi Jaiswal** · **Sharafat** · **Garvit** · **Tanisha** · **Tanishq Saini** · **Astha** · **Mahima Kalra**
 
 *Department of Computer Science & Engineering (B.Tech CSE)*
 
 ---
 
 ## 📄 License
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [MIT License](https://opensource.org/licenses/MIT).

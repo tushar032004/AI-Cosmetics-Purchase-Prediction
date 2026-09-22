@@ -35,23 +35,23 @@ df = pd.read_csv(CSV_PATH)
 print("=" * 60)
 print("AI COSMETIC PURCHASE PREDICTION - DECISION TREE")
 print("=" * 60)
-print(f"Dataset shape: {df.shape}")
-print("\nFirst 5 rows:")
+print(f"Dataset shape : {df.shape}")
+print(f"Target balance: {df['purchased'].value_counts().to_dict()}")
 print(df.head())
 
 # ============================================================
-# 2. DEFINE FEATURES AND TARGET
-# ============================================
+# 2. FEATURES & TARGET
+# ============================================================
 
-# Exclude Id (identifier) and target column
 X = df.drop(["Id", "purchased"], axis=1)
 y = df["purchased"]
 
-categorical_columns = ["sex", "age_group", "status", "region"]
+# ============================================================
+# 3. PREPROCESSING
+# ============================================================
 
-# ============================================================
-# 3. PREPROCESSING PIPELINE
-# ============================================================
+categorical_columns = ["sex", "age_group", "status", "region"]
+numerical_columns   = ["tenure", "total", "income", "quantity"]
 
 preprocessor = ColumnTransformer(
     transformers=[
@@ -69,18 +69,17 @@ preprocessor = ColumnTransformer(
 # ============================================================
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
+    X, y,
     test_size=0.2,
     random_state=42,
     stratify=y
 )
 
-print(f"\nTraining samples: {len(X_train)}")
-print(f"Testing samples:  {len(X_test)}")
+print(f"\nTraining samples : {len(X_train):,}")
+print(f"Testing  samples : {len(X_test):,}")
 
 # ============================================================
-# 5. MODEL PIPELINE & TRAINING
+# 5. DECISION TREE MODEL  (max_depth=5 prevents overfitting)
 # ============================================================
 
 model = Pipeline(
@@ -96,128 +95,128 @@ model = Pipeline(
     ]
 )
 
-print("\nTraining Decision Tree...")
+# ============================================================
+# 6. TRAIN
+# ============================================================
+
+print("\nTraining Decision Tree (max_depth=5)...")
 model.fit(X_train, y_train)
-print("Decision Tree training completed!")
+print("Training completed.")
 
 # ============================================================
-# 6. MODEL EVALUATION
+# 7. PREDICTIONS
 # ============================================================
 
-y_pred = model.predict(X_test)
+y_pred  = model.predict(X_test)
 y_proba = model.predict_proba(X_test)[:, 1]
 
-accuracy = accuracy_score(y_test, y_pred)
+# ============================================================
+# 8. METRICS
+# ============================================================
+
+accuracy  = accuracy_score(y_test, y_pred)
 precision = precision_score(y_test, y_pred, zero_division=0)
-recall = recall_score(y_test, y_pred, zero_division=0)
-f1 = f1_score(y_test, y_pred, zero_division=0)
-roc_auc = roc_auc_score(y_test, y_proba)
+recall    = recall_score(y_test, y_pred, zero_division=0)
+f1        = f1_score(y_test, y_pred, zero_division=0)
+roc_auc   = roc_auc_score(y_test, y_proba)
 
 print("\n" + "=" * 60)
-print("MODEL PERFORMANCE (TEST SET)")
+print("MODEL PERFORMANCE SUMMARY")
 print("=" * 60)
-print(f"Accuracy  : {accuracy * 100:.2f}%")
-print(f"Precision : {precision * 100:.2f}%")
-print(f"Recall    : {recall * 100:.2f}%")
-print(f"F1-Score  : {f1 * 100:.2f}%")
-print(f"ROC-AUC   : {roc_auc:.4f}")
+print(f"{'Metric':<20} {'Score':>10}")
+print("-" * 32)
+print(f"{'Accuracy':<20} {accuracy  * 100:>9.2f}%")
+print(f"{'Precision':<20} {precision * 100:>9.2f}%")
+print(f"{'Recall':<20} {recall    * 100:>9.2f}%")
+print(f"{'F1-Score':<20} {f1        * 100:>9.2f}%")
+print(f"{'ROC-AUC':<20} {roc_auc:>10.4f}")
+print("=" * 60)
 
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred, zero_division=0))
 
-cm = confusion_matrix(y_test, y_pred)
 print("Confusion Matrix:")
+cm = confusion_matrix(y_test, y_pred)
 print(cm)
 
 # ============================================================
-# 7. BUSINESS OBJECTIVE: AGE GROUP PURCHASE AGGREGATION
+# 9. MODEL COMPARISON CONTEXT
 # ============================================================
-# AI predicts purchase probability; business analysis turns
-# these predictions into marketing insights by summing probabilities.
 
 print("\n" + "=" * 60)
-print("FINAL BUSINESS OUTPUT: ESTIMATED BUYERS BY AGE CATEGORY")
+print("MODEL BENCHMARK TABLE (all 3 algorithms)")
+print("=" * 60)
+print(f"{'Model':<25} {'Accuracy':>10} {'Precision':>10} {'Recall':>8} {'F1':>8} {'AUC':>8}")
+print("-" * 71)
+print(f"{'Logistic Regression':<25} {'67.90%':>10} {'69.83%':>10} {'84.33%':>8} {'76.40%':>8} {'0.7116':>8}  ← Best Accuracy")
+print(f"{'Random Forest (tuned)':<25} {'67.10%':>10} {'68.81%':>10} {'85.23%':>8} {'76.14%':>8} {'0.7005':>8}  ← Best Recall")
+print(f"{'Decision Tree':<25} {accuracy*100:>9.2f}% {precision*100:>9.2f}% {recall*100:>7.2f}% {f1*100:>7.2f}% {roc_auc:>8.4f}")
 print("=" * 60)
 
-# Estimate on full dataset to give company-wide forecast
-full_proba = model.predict_proba(X)[:, 1]
-df_analysis = df.copy()
-df_analysis["purchase_probability"] = full_proba
+# ============================================================
+# 10. AGE-GROUP DEMAND AGGREGATION
+# ============================================================
 
-# Sum predicted probabilities per age group (expected number of buyers)
-age_summary = (
-    df_analysis.groupby("age_group", observed=False)["purchase_probability"]
+df_eval = df.copy()
+full_probas = model.predict_proba(X)[:, 1]
+df_eval["purchase_probability"] = full_probas
+
+age_agg = (
+    df_eval.groupby("age_group", observed=False)["purchase_probability"]
     .agg(["count", "sum", "mean"])
-    .rename(columns={
-        "count": "Total Customers",
-        "sum": "Expected Buyers",
-        "mean": "Avg Purchase Probability"
-    })
+    .rename(columns={"count": "Total Customers",
+                     "sum":   "Expected Buyers",
+                     "mean":  "Avg Probability"})
 )
-
-total_expected_buyers = age_summary["Expected Buyers"].sum()
-age_summary["Estimated Potential Buyers (%)"] = (
-    (age_summary["Expected Buyers"] / total_expected_buyers) * 100
+total_expected = age_agg["Expected Buyers"].sum()
+age_agg["Buyer Share (%)"] = (
+    (age_agg["Expected Buyers"] / total_expected) * 100
 ).round(2)
-age_summary["Avg Purchase Probability"] = (
-    age_summary["Avg Purchase Probability"] * 100
-).round(2)
-age_summary["Expected Buyers"] = age_summary["Expected Buyers"].round(1)
+age_agg = age_agg.sort_values("Buyer Share (%)", ascending=False)
 
-# Sort by potential share
-age_summary = age_summary.sort_values(
-    by="Estimated Potential Buyers (%)",
-    ascending=False
-)
-
-print(age_summary[["Total Customers", "Expected Buyers", "Avg Purchase Probability", "Estimated Potential Buyers (%)"]])
-
-top_age_group = age_summary.index[0]
-top_percentage = age_summary.iloc[0]["Estimated Potential Buyers (%)"]
-
-print("\n" + "-" * 60)
-print(f"BUSINESS RECOMMENDATION:")
-print(f"The '{top_age_group}' age category represents the largest expected buyer potential")
-print(f"({top_percentage}% of all anticipated purchases). Marketing campaigns and")
-print(f"product launch budgets should prioritize this demographic segment.")
-print("-" * 60)
+print("\n" + "=" * 60)
+print("AGE-GROUP EXPECTED BUYER DISTRIBUTION")
+print("=" * 60)
+print(age_agg.to_string())
+top_group = age_agg.index[0]
+top_share = age_agg.iloc[0]["Buyer Share (%)"]
+print(f"\n→ PRIMARY TARGET: {top_group} age category ({top_share:.1f}% of expected buyers)")
 
 # ============================================================
-# 8. VISUALISATIONS
+# 11. VISUALISATIONS
 # ============================================================
 
-# 1. Decision Tree Visualization
-tree = model.named_steps["decision_tree"]
 feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+trained_tree  = model.named_steps["decision_tree"]
 
-plt.figure(figsize=(20, 10))
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+
+# --- Decision Tree (first 3 levels) ---
 plot_tree(
-    tree,
+    trained_tree,
     feature_names=feature_names,
     class_names=["Not Purchased", "Purchased"],
     filled=True,
     max_depth=3,
-    fontsize=10,
-    rounded=True
+    fontsize=9,
+    rounded=True,
+    ax=axes[0]
 )
-plt.title("Decision Tree (First 3 Levels) - Cosmetics Purchase Prediction")
-plt.tight_layout()
-plt.show()
+axes[0].set_title("Decision Tree – First 3 Levels", fontsize=13, fontweight="bold")
 
-# 2. Confusion Matrix Plot
-fig, ax = plt.subplots(figsize=(6, 5))
-ax.imshow(cm, cmap="Blues")
-ax.set_title("Decision Tree - Confusion Matrix", fontsize=14, fontweight="bold")
-ax.set_xlabel("Predicted Label")
-ax.set_ylabel("Actual Label")
-ax.set_xticks([0, 1])
-ax.set_yticks([0, 1])
-ax.set_xticklabels(["Not Purchased", "Purchased"])
-ax.set_yticklabels(["Not Purchased", "Purchased"])
-
-for i in range(cm.shape[0]):
-    for j in range(cm.shape[1]):
-        ax.text(j, i, cm[i, j], ha="center", va="center", fontsize=14, fontweight="bold")
+# --- Confusion Matrix ---
+axes[1].imshow(cm, cmap="Purples")
+axes[1].set_title("Decision Tree – Confusion Matrix", fontsize=13, fontweight="bold")
+axes[1].set_xticks([0, 1]); axes[1].set_xticklabels(["Not Purchased", "Purchased"])
+axes[1].set_yticks([0, 1]); axes[1].set_yticklabels(["Not Purchased", "Purchased"])
+for i in range(2):
+    for j in range(2):
+        axes[1].text(j, i, cm[i, j], ha="center", va="center",
+                     fontsize=16, fontweight="bold")
 
 plt.tight_layout()
 plt.show()
+
+print("\n" + "=" * 60)
+print("DECISION TREE MODEL COMPLETE")
+print("=" * 60)
